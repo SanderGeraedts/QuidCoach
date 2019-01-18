@@ -5,23 +5,20 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
+import android.graphics.Point;
 import android.graphics.RectF;
 import android.support.annotation.Nullable;
 import android.util.AttributeSet;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewTreeObserver;
 import android.widget.RelativeLayout;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import nl.codepanda.quidcoach.R;
 import nl.codepanda.quidcoach.controllers.PlayersController;
 import nl.codepanda.quidcoach.models.Player;
 
-public class FieldView extends View {
+public class FieldView extends RelativeLayout {
     private final static float LAT_LEFT_UP = 51.44707298917047f;
     private final static float LON_LEFT_UP = 5.4383440000000345f;
     private final static float LAT_RIGHT_DOWN = 51.44653399903774f;
@@ -30,6 +27,7 @@ public class FieldView extends View {
     private Bitmap mImage;
 
     private List<Player> players;
+    private List<PlayerView> playerViews;
 
     public FieldView(Context context) {
         super(context);
@@ -58,25 +56,7 @@ public class FieldView extends View {
     private void init(@Nullable AttributeSet set) {
         mImage = BitmapFactory.decodeResource(getResources(), R.drawable.background);
 
-        players = PlayersController.getPlayers();
-
-        getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                getViewTreeObserver().removeOnGlobalLayoutListener(this);
-
-                mImage = getResizedBitmap(mImage, getWidth(), getHeight());
-
-                new Timer().scheduleAtFixedRate(new TimerTask() {
-                    @Override
-                    public void run() {
-
-
-                        postInvalidate();
-                    }
-                }, 2000, 500);
-            }
-        });
+        playerViews = new ArrayList<>();
     }
 
     @Override
@@ -97,31 +77,44 @@ public class FieldView extends View {
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
     }
 
-    public void drawPlayers(Context context) {
-        for (Player player: players) {
-//            drawPlayer(player, context);
+    public void drawPlayers(Context context, Point boundaries) {
+        for (PlayerView playerView : playerViews) {
+            this.removeView(playerView);
+        }
+
+        this.playerViews.clear();
+
+        players = PlayersController.getPlayers();
+
+        for (Player player : players) {
+            drawPlayer(player, context, boundaries);
         }
     }
 
-//    private void drawPlayer(Player player, Context context) {
-//        inflate(context, R.layout.view_player, this);
-//    }
+    private void drawPlayer(Player player, Context context, Point boundaries) {
+        PlayerView playerView = new PlayerView(context);
+        playerView.setPosition(player.getPosition());
 
-    private int mapLatToX(float lat) {
-        float dLat = LAT_RIGHT_DOWN - LAT_LEFT_UP;
-        float dX = mImage.getWidth();
+        LayoutParams layoutParams = new LayoutParams(50, 50);
+        layoutParams.setMargins(mapLatToX(player.getLatitude(), boundaries.x), mapLonToY(player.getLongitude(), boundaries.y), 0, 0);
+        this.playerViews.add(playerView);
 
-        float dLatPlayer = lat - LAT_LEFT_UP;
-
-        return Math.round((dX / dLat) * dLatPlayer);
+        this.addView(playerView, layoutParams);
     }
 
-    private int mapLonToY(float lon) {
-        float dLon = LON_RIGHT_DOWN - LON_LEFT_UP;
-        float dY = mImage.getHeight();
+    public int mapLatToX(float lat, int width) {
+        float dLat = Math.abs(LAT_RIGHT_DOWN - LAT_LEFT_UP);
 
-        float dLonPlayer = lon - LON_LEFT_UP;
+        float dLatPlayer = Math.abs(lat - LAT_LEFT_UP);
 
-        return Math.round((dY / dLon) * dLonPlayer);
+        return Math.round(((width - 100) / dLat) * dLatPlayer);
+    }
+
+    public int mapLonToY(float lon, int height) {
+        float dLon = Math.abs(LON_RIGHT_DOWN - LON_LEFT_UP);
+
+        float dLonPlayer = Math.abs(lon - LON_LEFT_UP);
+
+        return Math.round(((height - 100) / dLon) * dLonPlayer);
     }
 }
